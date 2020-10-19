@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := as7262-test
+PROJECT_NAME := as7262_example
 
 include $(IDF_PATH)/make/project.mk
 

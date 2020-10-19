@@ -11,7 +11,7 @@
 static const char *TAG = "as7262-test";
 
 static void main_task(void *arg) {
-    ESP_LOGI(TAG, "My task initializing............... kkkk");
+    ESP_LOGI(TAG, "AS7262 main task initializing...");
     // i2c_master_init();
     as7262_init();
     

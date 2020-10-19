@@ -2,5 +2,8 @@
 # in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.5)
 
-idf_component_register(SRCS "src/AS7262.c"
-                    INCLUDE_DIRS "include")
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+
+set(EXTRA_COMPONENT_DIRS "..")
+
+project(as7262_example)
