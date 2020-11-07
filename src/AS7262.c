@@ -13,6 +13,7 @@
 #include "AS7262.h"
 
 static const char *TAG = "AS7262-LIB";
+static uint8_t dev_addr = AS7262_ADDRESS;
 
 struct AS7262_dev dev;
 
@@ -116,7 +117,6 @@ uint8_t get_led_control_hex(as7262_led_control_t led) {
 void as7262_init(as7262_read_fptr_t user_i2c_read, as7262_write_fptr_t user_i2c_write) {
 
     ESP_LOGI(TAG, "Hello!");
-    uint8_t dev_addr = AS7262_ADDRESS;
     dev.intf_ptr = &dev_addr; //??
     dev.i2c_read = user_i2c_read;
     dev.i2c_write = user_i2c_write;
