@@ -160,9 +160,23 @@ enum {
   AS726x_RED,
 };
 
+/*** Function Pointers ***/
+typedef int8_t (*as7262_read_fptr_t)(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr);
+typedef int8_t (*as7262_write_fptr_t)(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr);
+struct AS7262_dev {
+    /*< Interface function pointer used to enable the device address for I2C and chip selection for SPI */
+    void *intf_ptr;
 
-esp_err_t as7262_i2c_master_read(uint8_t address, uint8_t *data_rd, size_t size);
-esp_err_t as7262_i2c_master_write(uint8_t address, uint8_t *data_wr, size_t size);
+    /*< Read function pointer */
+    as7262_read_fptr_t i2c_read;
+
+    /*< Write function pointer */
+    as7262_write_fptr_t i2c_write;
+};
+
+
+// esp_err_t as7262_i2c_master_read(uint8_t address, uint8_t *data_rd, size_t size);
+// esp_err_t as7262_i2c_master_write(uint8_t address, uint8_t *data_wr, size_t size);
 
 
 /**************************************************************************/
@@ -226,7 +240,7 @@ uint8_t get_led_control_hex(as7262_led_control_t led);
 /**
  * @brief AS7262 Chip Init
  */
-void as7262_init(void);
+void as7262_init(as7262_read_fptr_t user_i2c_read, as7262_write_fptr_t user_i2c_write);
 
 
 
