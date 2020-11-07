@@ -27,6 +27,8 @@ uint8_t virtualRead(uint8_t virtual_addr) {
         // Read slave I²C status to see if the read buffer is ready.
         // err = as7262_i2c_master_read(AS726X_SLAVE_STATUS_REG, &status, 1);
         err = dev.i2c_read(AS726X_SLAVE_STATUS_REG, &status, 1, dev.intf_ptr);
+        if(err == ESP_OK) ESP_LOGI(TAG, "Read complete");
+        else ESP_LOGI(TAG, "Could not read");
 
         // ESP_LOGI(TAG, "%s First status reg: %02x", __FUNCTION__ ,status);
         if ((status & AS726X_SLAVE_TX_VALID) == 0) {
@@ -38,6 +40,8 @@ uint8_t virtualRead(uint8_t virtual_addr) {
     // Escreve o virtual_addr normal* no registrador WRITE_REG (0x01) para indicar que queremos lê-lo
     // as7262_i2c_master_write(AS726X_SLAVE_WRITE_REG, &virtual_addr, 1);
     err = dev.i2c_write(AS726X_SLAVE_WRITE_REG, &virtual_addr, 1, dev.intf_ptr);
+    if(err == ESP_OK) ESP_LOGI(TAG, "Write complete");
+    else ESP_LOGI(TAG, "Could not write");
 
     while (1) {
         // Read the slave I²C status to see if our read data is available.
