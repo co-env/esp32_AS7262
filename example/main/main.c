@@ -45,8 +45,9 @@ esp_err_t i2c_master_driver_initialize(void) {
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
     
     i2c_param_config(i2c_master_port, &conf);
-    return i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);   
+    return i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
 }
+
 
 /**
  * @brief generic function for reading I2C data
@@ -58,38 +59,42 @@ esp_err_t i2c_master_driver_initialize(void) {
  * 
  * >init: dev->intf_ptr = &dev_addr;
  * 
- * @return ESP_OK/BME280_OK if reading was successful
+ * @return ESP_OK if reading was successful
  */
 int8_t main_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr) { // *intf_ptr = dev->intf_ptr
-    int8_t rslt = 0; /* Return 0 for Success, non-zero for failure */
+    int8_t ret = 0; /* Return 0 for Success, non-zero for failure */
 
     if (len == 0) {
         return ESP_OK;
     }
 
-    uint8_t addr = *(uint8_t*)intf_ptr;
+    uint8_t chip_addr = *(uint8_t*)intf_ptr;
     
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
+    
+    if (reg_addr != 0xFF) {
+        i2c_master_write_byte(cmd, (chip_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+        i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
+        i2c_master_start(cmd);
+    }
+    
+    i2c_master_write_byte(cmd, (chip_addr << 1) | I2C_MASTER_READ, ACK_CHECK_EN);
 
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_READ, ACK_CHECK_EN);
     if (len > 1) {
-        i2c_master_read(cmd, reg_data, len, ACK_VAL);
+        i2c_master_read(cmd, reg_data, len - 1, ACK_VAL);
     }
     i2c_master_read_byte(cmd, reg_data + len - 1, NACK_VAL);
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
+    ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
     
     i2c_cmd_link_delete(cmd);
-    rslt = ret;
-    return rslt;
-
+    
+    return ret;
 }
+
 
 /**
  * @brief generic function for writing data via I2C 
@@ -99,78 +104,75 @@ int8_t main_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *in
  * @param len length of data to be written
  * @param intf_ptr 
  * 
- * @return ESP_OK/BME280_OK if writing was successful
+ * @return ESP_OK if writing was successful
  */
 int8_t main_i2c_write(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr) {
-    int8_t rslt = 0; /* Return 0 for Success, non-zero for failure */
+    int8_t ret = 0; /* Return 0 for Success, non-zero for failure */
 
-    uint8_t addr = *(uint8_t*)intf_ptr;
+    uint8_t chip_addr = *(uint8_t*)intf_ptr;
 
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, (chip_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+    
+    if (reg_addr != 0xFF) {
+        i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
+    }
 
     i2c_master_write(cmd, reg_data, len, ACK_CHECK_EN);
-    // for (int i = 0; i < len; i++) {
-    //     i2c_master_write_byte(cmd, reg_data[i], ACK_CHECK_EN);
-    // }
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
+    ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
     
     i2c_cmd_link_delete(cmd);
     
-    rslt = ret;
-    return rslt;
-
+    return ret;
 }
 
 static void main_task(void *arg) {
+    as7262_dev_t main_device;
+        
     ESP_LOGI(TAG, "AS7262 main task initializing...");
-    // i2c_master_init();
+    
     i2c_master_driver_initialize();
-    as7262_init(main_i2c_read, main_i2c_write);
+    
+    
+    as7262_init(&main_device, (as7262_read_fptr_t)main_i2c_read, (as7262_write_fptr_t)main_i2c_write);
     
     vTaskDelay(1000 / portTICK_RATE_MS);
 
-    set_led_drv_on(true);
+    as7262_set_led_drv_on(&main_device, true);
     vTaskDelay(1000 / portTICK_RATE_MS);
-    set_led_drv_on(false);
+    as7262_set_led_drv_on(&main_device, false);
 
-    uint8_t temp = read_temperature();
+    uint8_t temp = as7262_read_temperature(&main_device);
 
-    float sensorValues[AS7262_NUM_CHANNELS];
 
-    // start_measurement();
-    set_conversion_type(MODE_2);
+    as7262_set_conversion_type(&main_device, MODE_2);
 
     // Changing GAIN 
-    control_setup.GAIN = GAIN_16X;
-    virtualWrite(AS726X_CONTROL_SETUP, get_control_setup_hex(control_setup));
+    as7262_set_gain(&main_device, GAIN_16X);
 
     while(1) {
-        if (data_ready()) {
-            read_calibrated_values(sensorValues, AS7262_NUM_CHANNELS);
-            temp = read_temperature();
+        if (as7262_data_ready(&main_device)) {
+            as7262_read_calibrated_values(&main_device, AS7262_NUM_CHANNELS);
+            temp = as7262_read_temperature(&main_device);
 
             ESP_LOGI(TAG, "Device temperature: %d", temp);
-            ESP_LOGI(TAG, " Violet:  %f", sensorValues[AS726x_VIOLET]);
-            ESP_LOGI(TAG, " Blue:  %f", sensorValues[AS726x_BLUE]);
-            ESP_LOGI(TAG, " Green:  %f", sensorValues[AS726x_GREEN]);
-            ESP_LOGI(TAG, " Yellow:  %f", sensorValues[AS726x_YELLOW]);
-            ESP_LOGI(TAG, " Orange:  %f", sensorValues[AS726x_ORANGE]);
-            ESP_LOGI(TAG, " Red:  %f", sensorValues[AS726x_RED]);
+            ESP_LOGI(TAG, " Violet:  %f", main_device.calibrated_values[AS726x_VIOLET]);
+            ESP_LOGI(TAG, " Blue:    %f", main_device.calibrated_values[AS726x_BLUE]);
+            ESP_LOGI(TAG, " Green:   %f", main_device.calibrated_values[AS726x_GREEN]);
+            ESP_LOGI(TAG, " Yellow:  %f", main_device.calibrated_values[AS726x_YELLOW]);
+            ESP_LOGI(TAG, " Orange:  %f", main_device.calibrated_values[AS726x_ORANGE]);
+            ESP_LOGI(TAG, " Red:     %f", main_device.calibrated_values[AS726x_RED]);
             ESP_LOGI(TAG, " ------------------ ");
-
         }
 
         vTaskDelay(100 / portTICK_RATE_MS);
     }
 }
 
-void app_main(void)
-{
+void app_main(void) {
     esp_log_level_set("*", ESP_LOG_VERBOSE);
     
     // Creation of main task
