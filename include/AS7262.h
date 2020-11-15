@@ -15,9 +15,15 @@
 #define __AS7262_H__
 
 #include <stdio.h>
-#include "driver/i2c.h"
-#include "sdkconfig.h"
 #include <string.h>
+
+#include <esp_types.h>
+#include "sdkconfig.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "esp_err.h"
 
 
 #define AS7262_ADDRESS (0x49)  /**< Default device I2C address */
