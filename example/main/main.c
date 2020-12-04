@@ -139,6 +139,9 @@ static void main_task(void *arg) {
     
     as7262_init(&main_device, (as7262_read_fptr_t)main_i2c_read, (as7262_write_fptr_t)main_i2c_write);
     
+    //! Integration time:  0x3C * 2.8ms = 168ms
+    as7262_set_integration_time(&main_device, 0x3C);  
+
     vTaskDelay(1000 / portTICK_RATE_MS);
 
     as7262_set_led_drv_on(&main_device, true);
@@ -146,6 +149,10 @@ static void main_task(void *arg) {
     as7262_set_led_drv_on(&main_device, false);
 
     uint8_t temp = as7262_read_temperature(&main_device);
+
+    double lux_factor = 0.1464128843338;
+    
+    double total_light = 0;
 
 
     as7262_set_conversion_type(&main_device, MODE_2);
@@ -158,6 +165,7 @@ static void main_task(void *arg) {
             as7262_read_calibrated_values(&main_device, AS7262_NUM_CHANNELS);
             temp = as7262_read_temperature(&main_device);
 
+            total_light = 0;
             ESP_LOGI(TAG, "Device temperature: %d", temp);
             ESP_LOGI(TAG, " Violet:  %f", main_device.calibrated_values[AS726x_VIOLET]);
             ESP_LOGI(TAG, " Blue:    %f", main_device.calibrated_values[AS726x_BLUE]);
@@ -165,6 +173,16 @@ static void main_task(void *arg) {
             ESP_LOGI(TAG, " Yellow:  %f", main_device.calibrated_values[AS726x_YELLOW]);
             ESP_LOGI(TAG, " Orange:  %f", main_device.calibrated_values[AS726x_ORANGE]);
             ESP_LOGI(TAG, " Red:     %f", main_device.calibrated_values[AS726x_RED]);
+            ESP_LOGI(TAG, " ------------------ ");
+
+            for (int i = 0; i <= AS726x_RED; i++) {
+                total_light += main_device.calibrated_values[i];
+            }
+
+            ESP_LOGI(TAG, " Soma:   %f", total_light);
+
+            total_light /= 45 * lux_factor;
+            ESP_LOGI(TAG, " LUX:    %f", total_light);
             ESP_LOGI(TAG, " ------------------ ");
         }
 
